@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Smart Socket Dashboard — L1 & L2</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+:root{
+  --bg:#050A0A;--card:#0F1414;--accent1:#00F0FF;--accent2:#00FF99;
+  --danger:#FF4477;--text:#E5F7F4;--muted:#9BB5AE;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);margin:0;font-family:Inter, Arial, Helvetica, sans-serif;color:var(--text);}
+header{padding:18px;border-bottom:1px solid rgba(0,255,180,0.06);display:flex;justify-content:space-between;align-items:center;}
+h1{margin:0;font-size:20px;color:var(--accent2);text-shadow:0 0 12px rgba(0,255,180,0.12);}
+.btn{padding:10px 16px;border:none;background:var(--accent2);border-radius:10px;font-weight:600;cursor:pointer;color:#001;}
+.wrap{max-width:1250px;margin:auto;padding:18px;}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:18px;margin-bottom:18px;}
+.card{background:var(--card);padding:18px;border-radius:14px;border:1px solid rgba(0,255,150,0.04);box-shadow:0 6px 24px rgba(0,0,0,0.4);}
+.title{font-size:14px;color:var(--accent1);margin-bottom:10px;}
+.kv{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+.big{font-size:28px;font-weight:700;margin:0;color:var(--text);}
+.small{font-size:12px;color:var(--muted);}
+.gauge-wrap{margin-top:10px;height:12px;background:#151919;border-radius:8px;overflow:hidden;}
+.gbar{height:100%;background:linear-gradient(90deg,var(--accent1),var(--accent2));width:0%;transition:0.4s;box-shadow:0 0 12px rgba(0,255,180,0.06);}
+.appliance{margin-top:12px;padding:12px;border-radius:10px;background:rgba(255,255,255,0.01);border:1px solid rgba(0,255,150,0.02);}
+.row-chart{display:grid;grid-template-columns:1fr;gap:18px;} /* only chart column now */
+.controls{margin:12px 0;display:flex;gap:12px;align-items:center}
+#status{font-weight:600;margin-left:12px;color:var(--muted)}
+.legend{display:flex;gap:12px;align-items:center;font-size:12px;color:var(--muted);margin-top:8px}
+.legend .dot{width:12px;height:12px;border-radius:50%}
+.dot1{background:linear-gradient(90deg,#00b8ff,#00f0ff)}
+.dot2{background:linear-gradient(90deg,#7eff9a,#00ff99)}
+@media(max-width:900px){.grid{grid-template-columns:1fr}.row-chart{grid-template-columns:1fr}}
+.small-btn{padding:8px 10px;border-radius:8px;border:1px solid rgba(255,255,255,0.03);background:transparent;color:var(--text);cursor:pointer}
+
+/* modal */
+.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9999;align-items:center;justify-content:center}
+.modal-box{background:var(--card);padding:18px;border-radius:10px;width:92%;max-width:460px;border:1px solid rgba(0,255,150,0.04)}
+.modal h3{margin:0 0 8px 0;color:var(--accent1)}
+.modal p{color:var(--muted);margin:0 0 12px 0}
+.modal .actions{display:flex;gap:8px;justify-content:center}
+.modal .actions .btn-small{padding:8px 12px;border-radius:8px;border:none;cursor:pointer}
+.btn-stop{background:var(--danger);color:#fff;border-radius:8px;padding:8px 12px}
+.btn-continue{background:transparent;color:var(--text);border:1px solid rgba(255,255,255,0.05);padding:8px 12px;border-radius:8px}
+</style>
+</head>
+<body>
+<header>
+  <h1>⚡ Smart Energy Socket — L1 & L2</h1>
+  <div>
+    <button id="btnToggle" class="btn">Start</button>
+    <span id="statusText" style="margin-left:12px;color:var(--muted);font-weight:600">Stopped</span>
+  </div>
+</header>
+
+<div class="wrap">
+  <!-- Top sockets -->
+  <div class="grid">
+    <!-- Socket 1 -->
+    <div class="card" id="socket1Card">
+      <div class="title">Meter 1 (L1)</div>
+      <div style="margin-top:8px">
+        <div class="kv">
+          <div>
+            <p class="big" id="p1">— W</p>
+            <p class="small">Power</p>
+          </div>
+          <div>
+            <p class="big" id="voltage1">— V</p>
+            <p class="small">Voltage</p>
+          </div>
+        </div>
+
+        <div class="kv">
+          <div>
+            <p class="big" id="current1">— A</p>
+            <p class="small">Current</p>
+          </div>
+          <div>
+            <p class="big" id="energy1">— kWh</p>
+            <p class="small">Energy</p>
+          </div>
+        </div>
+
+        <div class="kv">
+          <div>
+            <p class="big" id="cost1">₹ —</p>
+            <p class="small">Cost</p>
+          </div>
+          <div style="width:40%">
+            <p class="small">Load</p>
+            <div class="gauge-wrap"><div class="gbar" id="gbar1"></div></div>
+            <p class="small" id="loadText1">0%</p>
+          </div>
+        </div>
+
+        <div class="appliance">
+          <div class="title">Detected Appliance</div>
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <div id="detName1" style="font-weight:700;color:var(--accent2)">—</div>
+              <div id="detW1" class="small">— W</div>
+            </div>
+            <div style="text-align:right">
+              <div id="onTimer1" class="small">00:00:00</div>
+              <div class="small">ON time</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Socket 2 -->
+    <div class="card" id="socket2Card">
+      <div class="title">Meter 2 (L2)</div>
+      <div style="margin-top:8px">
+        <div class="kv">
+          <div>
+            <p class="big" id="p2">— W</p>
+            <p class="small">Power</p>
+          </div>
+          <div>
+            <p class="big" id="voltage2">— V</p>
+            <p class="small">Voltage</p>
+          </div>
+        </div>
+
+        <div class="kv">
+          <div>
+            <p class="big" id="current2">— A</p>
+            <p class="small">Current</p>
+          </div>
+          <div>
+            <p class="big" id="energy2">— kWh</p>
+            <p class="small">Energy</p>
+          </div>
+        </div>
+
+        <div class="kv">
+          <div>
+            <p class="big" id="cost2">₹ —</p>
+            <p class="small">Cost</p>
+          </div>
+          <div style="width:40%">
+            <p class="small">Load</p>
+            <div class="gauge-wrap"><div class="gbar" id="gbar2"></div></div>
+            <p class="small" id="loadText2">0%</p>
+          </div>
+        </div>
+
+        <div class="appliance">
+          <div class="title">Detected Appliance</div>
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <div id="detName2" style="font-weight:700;color:var(--accent2)">—</div>
+              <div id="detW2" class="small">— W</div>
+            </div>
+            <div style="text-align:right">
+              <div id="onTimer2" class="small">00:00:00</div>
+              <div class="small">ON time</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Chart only (no quick controls) -->
+  <div class="row-chart">
+    <div class="card">
+      <div class="title">Real-Time Power Trend (L1 & L2)</div>
+      <canvas id="powerChart" height="140"></canvas>
+      <div class="legend">
+        <div style="display:flex;align-items:center;gap:8px"><div class="dot dot1"></div> L1</div>
+        <div style="display:flex;align-items:center;gap:8px"><div class="dot dot2"></div> L2</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: shown when a socket reaches warning duration -->
+<div id="applianceModal" class="modal" role="dialog" aria-hidden="true">
+  <div class="modal-box">
+    <h3>Appliance running too long</h3>
+    <p id="modalMsg">Socket X — appliance has been ON for 60s.</p>
+    <div class="actions" style="margin-top:12px">
+      <button id="modalStop" class="btn-stop">Stop Appliance</button>
+      <button id="modalContinue" class="btn-continue">Continue</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* CONFIG: replace with your device token for local testing ONLY */
+const DEVICE_TOKEN = "K1Q9KdHjInESBDWKtyLm-vlpBLV8hpI3";
+const BLYNK_BASE = "https://blynk.cloud/external/api";
+const POLL_MS = 3000; // poll interval when running
+
+/* pins used (meter1: V1..V5, meter2: V11..V15) */
+const PINS = ['V1','V2','V3','V4','V5','V11','V12','V13','V14','V15'];
+
+/* ---------- Appliance classifier (range-based) ---------- */
+/* Tweak these ranges to fit your real measurements */
+const applianceMap = [
+  { name: "Idle / No appliance", min: 0.0,   max: 0.9 },
+  { name: "Walkie Talkie / Very Low", min: 1, max: 4.9 },
+  { name: "LED Bulb", min: 5,   max: 20 },
+  { name: "Incandescent Bulb", min: 21, max: 60 },
+  { name: "Ceiling Fan", min: 61, max: 150 },
+  { name: "TV / Monitor", min: 151, max: 250 },
+  { name: "Computer / Desktop", min: 251, max: 600 },
+  { name: "Microwave / Small Heater", min: 601, max: 1500 },
+  { name: "Water Heater / High Load", min: 1501, max: 4000 },
+  { name: "Unknown High Load", min: 4001, max: 10000 }
+];
+
+function classifyAppliance(watts){
+  const w = Number(watts || 0);
+  for (let a of applianceMap){
+    if (w >= a.min && w <= a.max) return a.name;
+  }
+  if (w > applianceMap[applianceMap.length-1].max) return "Very High Load";
+  return "Unknown";
+}
+
+/* ---------- Decision Tree model loader & evaluator (optional) ---------- */
+/* The script will try to load './model.json' at page load.
+   If it successfully loads, the dashboard uses the tree for classification.
+   If it fails (no file or parse error), it falls back to the range classifier above. */
+
+let useTreeModel = false;
+let treeModel = null;
+
+/* load model.json (same folder as HTML) */
+async function loadTreeModel(url = './model.json'){
+  try {
+    const resp = await fetch(url, { cache: 'no-cache' });
+    if (!resp.ok) {
+      console.warn('Decision tree model not found at', url, 'HTTP', resp.status);
+      return false;
+    }
+    treeModel = await resp.json();
+    console.log('Decision tree model loaded', treeModel);
+    useTreeModel = true;
+    return true;
+  } catch (e) {
+    console.error('Failed to load tree model', e);
+    return false;
+  }
+}
+
+/* evaluate nested tree JSON (expects node structure exported by training script) */
+function evalTree(node, features){
+  if (!node) return null;
+  if (node.leaf) return node.class;
+  const fname = node.feature;
+  const fval = Number(features[fname] || 0);
+  if (fval <= Number(node.threshold)) return evalTree(node.left, features);
+  return evalTree(node.right, features);
+}
+
+/* wrapper: use tree when available, else fallback to range classifier */
+function classifyWithOptionalTree(power, voltage, current){
+
+  // 1️⃣ Hard rule: no appliance connected
+  if (Number(power) < 1 && Number(current) < 0.01) {
+    return "No Appliance";
+  }
+
+  // 2️⃣ ML model check
+  if (useTreeModel && treeModel){
+    const features = {
+      power: Number(power||0),
+      voltage: Number(voltage||0),
+      current: Number(current||0)
+    };
+    const cls = evalTree(treeModel, features);
+    if (cls) return cls;
+  }
+
+  // 3️⃣ Fallback manual range map
+  return classifyAppliance(power);
+}
+
+
+/* chart setup */
+const ctx = document.getElementById('powerChart').getContext('2d');
+const chart = new Chart(ctx, {
+  type: 'line',
+  data: { labels: [], datasets: [
+    { label: 'Power L1 (W)', data: [], fill:false, borderColor:"#00B8FF", tension:0.2, pointRadius:0 },
+    { label: 'Power L2 (W)', data: [], fill:false, borderColor:"#7EFF9A", tension:0.2, pointRadius:0 }
+  ]},
+  options: { animation:false, scales:{ y:{ beginAtZero:true } }, plugins:{legend:{display:false}}}
+});
+
+/* helper: check device online using documented endpoint */
+async function isDeviceOnline(){
+  const url = `${BLYNK_BASE}/isHardwareConnected?token=${DEVICE_TOKEN}`;
+  try {
+    const res = await fetch(url, { cache: 'no-cache' });
+    if (!res.ok) {
+      console.warn('isHardwareConnected HTTP', res.status);
+      return false;
+    }
+    const txt = (await res.text()).trim();
+    return txt === 'true' || txt === '"true"';
+  } catch(e){
+    console.error('isDeviceOnline error', e);
+    return false;
+  }
+}
+
+/* helper: fetch a single pin value */
+async function fetchPin(pin){
+  const url = `${BLYNK_BASE}/get?token=${DEVICE_TOKEN}&${pin}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`HTTP ${res.status} for ${pin}`);
+  const text = await res.text();
+  const n = Number(text.trim());
+  if (isFinite(n)) return n;
+  try { const obj = JSON.parse(text); return Number(obj) || 0; } catch(e){}
+  return 0;
+}
+
+/* read all pins in parallel and return map */
+async function readAllPins(){
+  const promises = PINS.map(pin => fetchPin(pin).catch(()=>0));
+  const results = await Promise.all(promises);
+  const map = {};
+  PINS.forEach((p,i)=>map[p]=results[i]);
+  return map;
+}
+
+/* UI update helpers */
+function clearUI(){
+  // Meter 1
+  document.getElementById('p1').innerText = '— W';
+  document.getElementById('voltage1').innerText = '— V';
+  document.getElementById('current1').innerText = '— A';
+  document.getElementById('energy1').innerText = '— kWh';
+  document.getElementById('cost1').innerText = '₹ —';
+  document.getElementById('gbar1').style.width = '0%';
+  document.getElementById('loadText1').innerText = '0%';
+  document.getElementById('detName1').innerText = '—';
+  document.getElementById('detW1').innerText = '— W';
+  document.getElementById('onTimer1').innerText = '00:00:00';
+  // Meter 2
+  document.getElementById('p2').innerText = '— W';
+  document.getElementById('voltage2').innerText = '— V';
+  document.getElementById('current2').innerText = '— A';
+  document.getElementById('energy2').innerText = '— kWh';
+  document.getElementById('cost2').innerText = '₹ —';
+  document.getElementById('gbar2').style.width = '0%';
+  document.getElementById('loadText2').innerText = '0%';
+  document.getElementById('detName2').innerText = '—';
+  document.getElementById('detW2').innerText = '— W';
+  document.getElementById('onTimer2').innerText = '00:00:00';
+}
+function updateUIFromMap(m){
+  document.getElementById('voltage1').innerText = Number(m['V1']||0).toFixed(1) + ' V';
+  document.getElementById('current1').innerText = Number(m['V2']||0).toFixed(3) + ' A';
+  document.getElementById('p1').innerText = Number(m['V3']||0).toFixed(2) + ' W';
+  document.getElementById('energy1').innerText = Number(m['V4']||0).toFixed(3) + ' kWh';
+  document.getElementById('cost1').innerText = '₹ ' + Number(m['V5']||0).toFixed(2);
+  let load1 = Math.min((Number(m['V3']||0)/2000)*100,100);
+  document.getElementById('gbar1').style.width = load1 + '%';
+  document.getElementById('loadText1').innerText = Math.round(load1) + '%';
+
+  document.getElementById('voltage2').innerText = Number(m['V11']||0).toFixed(1) + ' V';
+  document.getElementById('current2').innerText = Number(m['V12']||0).toFixed(3) + ' A';
+  document.getElementById('p2').innerText = Number(m['V13']||0).toFixed(2) + ' W';
+  document.getElementById('energy2').innerText = Number(m['V14']||0).toFixed(3) + ' kWh';
+  document.getElementById('cost2').innerText = '₹ ' + Number(m['V15']||0).toFixed(2);
+  let load2 = Math.min((Number(m['V13']||0)/2000)*100,100);
+  document.getElementById('gbar2').style.width = load2 + '%';
+  document.getElementById('loadText2').innerText = Math.round(load2) + '%';
+
+  // ---------- NEW: appliance classification (use tree model when loaded, else range-based) ----------
+  const power1 = Number(m['V3']||0);
+  const power2 = Number(m['V13']||0);
+  const volt1 = Number(m['V1']||0);
+  const curr1 = Number(m['V2']||0);
+  const volt2 = Number(m['V11']||0);
+  const curr2 = Number(m['V12']||0);
+
+  document.getElementById('detName1').innerText = classifyWithOptionalTree(power1, volt1, curr1);
+  document.getElementById('detW1').innerText = power1.toFixed(2) + ' W';
+  document.getElementById('detName2').innerText = classifyWithOptionalTree(power2, volt2, curr2);
+  document.getElementById('detW2').innerText = power2.toFixed(2) + ' W';
+  // -----------------------------------------------------------------------
+
+  // DETECTION: call detection logic with power values
+  handlePowerUpdate(1, power1);
+  handlePowerUpdate(2, power2);
+}
+
+/* chart update */
+function appendChart(p1, p2){
+  const now = new Date().toLocaleTimeString();
+  chart.data.labels.push(now);
+  chart.data.datasets[0].data.push(Number(p1 || 0));
+  chart.data.datasets[1].data.push(Number(p2 || 0));
+  if (chart.data.labels.length > 30) {
+    chart.data.labels.shift();
+    chart.data.datasets.forEach(ds=>ds.data.shift());
+  }
+  chart.update();
+}
+
+/* Poll loop control */
+let polling = false;
+let pollTimer = null;
+
+async function pollOnce(){
+  // check online first
+  const online = await isDeviceOnline();
+  document.getElementById('statusText').innerText = online ? 'Device ONLINE' : 'Device OFFLINE';
+  if (!online) {
+    clearUI();
+    return;
+  }
+  // device online: fetch values
+  try {
+    const data = await readAllPins();
+    updateUIFromMap(data);
+    appendChart(data['V3'], data['V13']); // power L1 (V3) and L2 (V13)
+  } catch(e){
+    console.error('readAllPins error', e);
+    clearUI();
+  }
+}
+
+function startPolling(){
+  if (polling) return;
+  polling = true;
+  document.getElementById('btnToggle').innerText = 'Stop';
+  document.getElementById('statusText').innerText = 'Checking...';
+  // immediate poll then interval
+  pollOnce();
+  pollTimer = setInterval(pollOnce, POLL_MS);
+}
+
+function stopPolling(){
+  polling = false;
+  document.getElementById('btnToggle').innerText = 'Start';
+  document.getElementById('statusText').innerText = 'Stopped';
+  if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+  clearUI();
+}
+
+/* attach button */
+document.getElementById('btnToggle').addEventListener('click', ()=>{
+  if (polling) stopPolling(); else startPolling();
+});
+
+/* --------------------
+   APPLIANCE DETECTION + ON-TIMER + ALARM MODAL
+   -------------------- */
+
+/* detection state per socket */
+function makeDet(){ return {
+  onState:false,       // currently detected ON
+  debounceId:null,     // debounce timer id
+  onStart:null,        // Date when ON started
+  uiInterval:null,     // interval updating onTimer display
+  alarmShown:false     // whether modal already shown for this ON session
+};}
+const det1 = makeDet();
+const det2 = makeDet();
+
+const MIN_ON_W = 1.0;      // threshold to consider "ON" (watts) — tweak if needed
+const DEBOUNCE_MS = 2000;  // require this many ms stable before confirming ON/OFF
+const WARN_SECONDS = 60;   // show modal after this many seconds ON
+
+/* handlePowerUpdate is called after UI update with latest power value */
+function handlePowerUpdate(id, power){
+  const det = (id===1)? det1 : det2;
+  // when already on
+  if (det.onState){
+    // still above threshold -> update nothing (timer running)
+    if (power > MIN_ON_W){
+      // check warn threshold
+      const elapsed = det.onStart ? Math.floor((Date.now() - det.onStart.getTime())/1000) : 0;
+      if (!det.alarmShown && elapsed >= WARN_SECONDS){
+        det.alarmShown = true;
+        showApplianceModal(id, elapsed);
+      }
+      return;
+    }
+    // below threshold -> start debounce to stop
+    if (det.debounceId) clearTimeout(det.debounceId);
+    det.debounceId = setTimeout(()=> {
+      det.debounceId = null;
+      // stop ON state
+      stopOnState(id);
+    }, DEBOUNCE_MS);
+    return;
+  } else {
+    // currently OFF; if power > threshold start debounce to enter ON state
+    if (power > MIN_ON_W){
+      if (det.debounceId) clearTimeout(det.debounceId);
+      det.debounceId = setTimeout(()=> {
+        det.debounceId = null;
+        startOnState(id);
+      }, DEBOUNCE_MS);
+      return;
+    } else {
+      // still off; ensure cleared
+      if (det.debounceId){ clearTimeout(det.debounceId); det.debounceId = null; }
+    }
+  }
+}
+
+function startOnState(id){
+  const det = (id===1)? det1 : det2;
+  det.onState = true;
+  det.onStart = new Date();
+  det.alarmShown = false;
+  // start UI timer (update hh:mm:ss)
+  if (det.uiInterval) clearInterval(det.uiInterval);
+  det.uiInterval = setInterval(()=> updateOnTimerUI(id), 500);
+  updateOnTimerUI(id);
+  // small visual highlight on card
+  const el = document.getElementById('socket'+id+'Card');
+  if (el) el.style.border = "1px solid rgba(0,255,180,0.12)";
+  setTimeout(()=> { if (el) el.style.border = ""; }, 1800);
+}
+
+function stopOnState(id){
+  const det = (id===1)? det1 : det2;
+  det.onState = false;
+  if (det.debounceId){ clearTimeout(det.debounceId); det.debounceId = null; }
+  if (det.uiInterval){ clearInterval(det.uiInterval); det.uiInterval = null; }
+  det.onStart = null;
+  det.alarmShown = false;
+  // reset UI timer text
+  document.getElementById('onTimer'+id).innerText = '00:00:00';
+}
+
+function updateOnTimerUI(id){
+  const det = (id===1)? det1 : det2;
+  if (!det.onStart){
+    document.getElementById('onTimer'+id).innerText = '00:00:00';
+    return;
+  }
+  const secs = Math.floor((Date.now() - det.onStart.getTime())/1000);
+  const hh = String(Math.floor(secs/3600)).padStart(2,'0');
+  const mm = String(Math.floor((secs%3600)/60)).padStart(2,'0');
+  const ss = String(secs%60).padStart(2,'0');
+  document.getElementById('onTimer'+id).innerText = `${hh}:${mm}:${ss}`;
+}
+
+/* Modal behavior */
+const modal = document.getElementById('applianceModal');
+const modalMsg = document.getElementById('modalMsg');
+let modalTargetSocket = null;
+
+function showApplianceModal(id, elapsedSeconds){
+  modalTargetSocket = id;
+  const mins = Math.floor(elapsedSeconds/60);
+  const secs = elapsedSeconds % 60;
+  modalMsg.innerText = `Socket ${id} — appliance has been ON for ${mins}m ${secs}s. What do you want to do?`;
+  modal.style.display = 'flex';
+}
+
+document.getElementById('modalContinue').addEventListener('click', ()=>{
+  // close modal and do nothing (timer continues)
+  modal.style.display = 'none';
+});
+
+document.getElementById('modalStop').addEventListener('click', ()=>{
+  // Stop the appliance timer locally for that socket
+  if (modalTargetSocket){
+    stopOnState(modalTargetSocket);
+    // Optionally: you could trigger a Blynk virtualWrite here to turn a relay off.
+    // e.g. Blynk write via server or other mechanism; not added here because it controls hardware.
+  }
+  modal.style.display = 'none';
+  modalTargetSocket = null;
+});
+
+/* initial state */
+clearUI();
+document.getElementById('statusText').innerText = 'Stopped';
+
+/* Try to load model.json automatically (non-blocking). If it exists and parses,
+   the dashboard will use it for classification; otherwise range-based classifier is used. */
+loadTreeModel('./model.json').then(ok=>{
+  if (ok) console.log('Tree model enabled');
+  else console.log('Tree model not available — using range classifier');
+});
+</script>
+</body>
+</html>
